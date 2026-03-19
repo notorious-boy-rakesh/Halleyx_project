@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Dashboard - Notorious Transport</title>
+  <link rel="stylesheet" href="../css/style.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+  <div id="sidebar" class="sidebar"></div>
+  
+  <div class="main-content">
+    <header class="topbar">
+      <div class="topbar-title">Overview Dashboard</div>
+      <div class="topbar-actions">
+        <span class="badge-pill badge-info"><i class="fa fa-clock"></i> Live Updates</span>
+      </div>
+    </header>
+
+    <div class="page-content">
+      <div class="section-header">
+        <h2 class="section-title">Logistics Command Center</h2>
+        <button class="btn-primary-grad" onclick="loadDashboard()"><i class="fa fa-sync"></i> Refresh Data</button>
+      </div>
+
+      <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 24px; margin-bottom: 32px;" id="kpiContainer">
+        <!-- KPIs injected here -->
+      </div>
+
+      <div style="display:grid; grid-template-columns: 2fr 1fr; gap: 24px;">
+        <div class="card-glass" style="padding: 24px;">
+          <h3 style="margin-bottom: 16px; font-size: 1.1rem;">Profitability & Margins</h3>
+          <div class="chart-container">
+            <canvas id="profitChart"></canvas>
+          </div>
+        </div>
+        
+        <div class="card-glass" style="padding: 24px; max-height: 400px; overflow-y: auto;">
+          <h3 style="margin-bottom: 16px; font-size: 1.1rem; color: var(--danger);"><i class="fa fa-exclamation-triangle"></i> Recent Anomalies</h3>
+          <div id="alertsContainer" style="display:flex; flex-direction:column; gap:12px;"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="../js/api.js"></script>
+  <script>
+    const user = requireAuth();
+    renderSidebar('dashboard');
+    
+    let profitChartInstance = null;
+
+    async function loadDashboard() {
+      try {
+        const res = await API.get('/analytics/dashboard');
+        const kpis = res.data;
+        
+        document.getElementById('kpiContainer').innerHTML = `
+          <div class="stat-card">
+            <div class="stat-icon purple"><i class="fa fa-truck"></i></div>
+            <div class="stat-value">${kpis.totalTrips}</div>
+            <div class="stat-label">Total Trips Tracked</div>
+            <div class="stat-change up"><i class="fa fa-play"></i> ${kpis.activeTrips} Active</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-icon green"><i class="fa fa-rupee-sign"></i></div>
+            <div class="stat-value">₹${Math.round(kpis.totalProfit).toLocaleString()}</div>
+            <div class="stat-label">Actual Profit</div>
+            <div class="stat-change ${kpis.totalProfit >= kpis.totalExpectedProfit ? 'up' : 'down'}">
+              Expected: ₹${Math.round(kpis.totalExpectedProfit || 0).toLocaleString()}
+            </div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-icon pink"><i class="fa fa-shield-alt"></i></div>
+            <div class="stat-value">${kpis.totalAnomalies}</div>
+            <div class="stat-label">Anomalies Detected</div>
+            <div class="stat-change down">${kpis.unresolvedAnomalies} Unresolved Flags</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-icon orange"><i class="fa fa-clipboard-check"></i></div>
+            <div class="stat-value">${kpis.completedTrips}</div>
+            <div class="stat-label">Trips Completed</div>
+            <div class="stat-change up">100% Delivery Rate</div>
+          </div>
+        `;
+
+        renderChart(kpis);
+        loadAlerts();
+
+      } catch (e) {
+        Toast.show('Failed to load dashboard KPIs', 'danger');
+      }
+    }
+
+    async function loadAlerts() {
+      try {
+        const res = await API.get('/analytics/alerts');
+        const alerts = res.data;
+        const container = document.getElementById('alertsContainer');
+        
+        if (!alerts.length) {
+          container.innerHTML = `<div class="empty-state"><i class="fa fa-check-circle empty-icon text-muted-ff"></i><p>No active anomalies detected.</p></div>`;
+          return;
+        }
+
+        container.innerHTML = alerts.slice(0, 5).map(a => `
+          <div style="padding: 12px; border: 1px solid var(--glass-border); border-radius: 8px; background: #fef2f2; border-left: 4px solid var(--danger);">
+            <div style="font-size: 0.8rem; font-weight: 600; color: var(--danger); margin-bottom: 4px;">[${a.severity.toUpperCase()}] ${a.type}</div>
+            <div style="font-size: 0.85rem; margin-bottom: 6px;">${a.message}</div>
+            <div style="font-size: 0.75rem; color: var(--text-muted); display:flex; justify-content:space-between;">
+              <span>Driver: ${a.driverId?.name || 'Unknown'}</span>
+              <span>${fmtDate(a.createdAt)}</span>
+            </div>
+          </div>
+        `).join('');
+
+      } catch (e) {}
+    }
+
+    function renderChart(kpis) {
+      const ctx = document.getElementById('profitChart').getContext('2d');
+      if (profitChartInstance) profitChartInstance.destroy();
+
+      profitChartInstance = new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels: ['Financial Overview'],
+          datasets: [
+            { label: 'Expected Profit', data: [kpis.totalExpectedProfit || 0], backgroundColor: '#94a3b8', borderRadius: 4 },
+            { label: 'Actual Realized Profit', data: [kpis.totalProfit || 0], backgroundColor: '#10b981', borderRadius: 4 }
+          ]
+        },
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          plugins: { legend: { position: 'top' } }
+        }
+      });
+    }
+
+    if(user.role === 'driver') {
+      window.location.href = 'trips.html'; // Drivers don't see the global admin dashboard
+    } else {
+      loadDashboard();
+    }
+  </script>
+</body>
+</html>

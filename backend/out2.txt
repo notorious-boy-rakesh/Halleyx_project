@@ -1,0 +1,30 @@
+📦 Starting In-Memory MongoDB Server...
+✅ In-Memory Database started at mongodb://127.0.0.1:52295/
+🌱 Seeding demo data into memory database...
+✅ Connected to MongoDB
+🗑️  Cleared existing data
+👤 Transport Users created
+🚛 Trucks added to fleet
+📋 Transport Workflow configured
+🚀 Active Trips configured
+💸 Expenses logged & Engine anomalies triggered
+
+🎉 FlowForge Transport Seed complete!
+
+Credentials:
+  Admin/Owner:    admin@flowforge.com   / Admin@123
+  Ops Manager:    manager@flowforge.com / Manager@123
+  Driver:         mike@flowforge.com    / User@123
+✅ Seeding complete.
+🚀 Starting FlowForge backend...
+❌ Error starting demo server: TypeError: Router.use() requires a middleware function
+    at router.use (C:\Users\rakes\Desktop\Halleyx\backend\node_modules\express\lib\router\index.js:462:11)
+    at Object.<anonymous> (C:\Users\rakes\Desktop\Halleyx\backend\routes\trucks.js:7:8)
+    at Module._compile (node:internal/modules/cjs/loader:1761:14)
+    at Object..js (node:internal/modules/cjs/loader:1893:10)
+    at Module.load (node:internal/modules/cjs/loader:1481:32)
+    at Module._load (node:internal/modules/cjs/loader:1300:12)
+    at TracingChannel.traceSync (node:diagnostics_channel:328:14)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:245:24)
+    at Module.require (node:internal/modules/cjs/loader:1504:12)
+    at require (node:internal/modules/helpers:152:16)

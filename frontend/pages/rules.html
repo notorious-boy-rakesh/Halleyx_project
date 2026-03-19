@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Anomalies & Rules Editor - Notorious</title>
+  <link rel="stylesheet" href="../css/style.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+  <div id="sidebar" class="sidebar"></div>
+  
+  <div class="main-content">
+    <header class="topbar">
+      <div class="topbar-title">Decision & Alert Engine Rules</div>
+      <div class="topbar-actions">
+        <select id="wfSelect" class="form-glass" style="width:250px;"></select>
+      </div>
+    </header>
+
+    <div class="page-content">
+      <div class="card-glass" style="padding:0; overflow:hidden;">
+        <div style="padding:16px 24px; border-bottom:1px solid var(--glass-border); background:#f8fafc; display:flex; justify-content:space-between; align-items:center;">
+           <h3 style="font-size:1.1rem; margin:0;">Workflow Routing Conditions</h3>
+           <span style="font-size:0.8rem; color:var(--text-muted);"><i class="fa fa-info-circle"></i> Rules are evaluated in priority order.</span>
+        </div>
+        <table class="table-glass" id="rulesTable">
+          <thead>
+            <tr>
+              <th>Priority</th>
+              <th>Rule Name</th>
+              <th>Trigger Step</th>
+              <th>Condition Logic</th>
+              <th>Destination Step</th>
+              <th>Status</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr><td colspan="7" class="empty-state">Loading rule logic...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <script src="../js/api.js"></script>
+  <script>
+    const user = requireAuth();
+    renderSidebar('rules');
+    
+    if(user.role === 'driver') window.location.href = 'trips.html';
+
+    async function loadWorkflows() {
+      try {
+        const res = await API.get('/workflows');
+        const sel = document.getElementById('wfSelect');
+        sel.innerHTML = res.data.map(w => `<option value="${w._id}">${w.name}</option>`).join('');
+        if(sel.options.length) loadRules(sel.value);
+        sel.onchange = (e) => loadRules(e.target.value);
+      } catch (err) { Toast.show(err.message, 'danger'); }
+    }
+
+    async function loadRules(wfId) {
+      try {
+        const res = await API.get('/rules');
+        const wfRules = res.data.filter(r => r.workflowId._id === wfId);
+        const tb = document.querySelector('#rulesTable tbody');
+        
+        if (!wfRules.length) {
+          tb.innerHTML = `<tr><td colspan="7" class="empty-state">No rules defined for this flowchart.</td></tr>`;
+          return;
+        }
+
+        tb.innerHTML = wfRules.map(r => `
+          <tr>
+            <td style="font-weight:700; color:var(--text-muted);">${r.priority}</td>
+            <td style="font-weight:600;">${r.name}</td>
+            <td><span class="badge-pill badge-primary">${r.stepId?.name || 'Unknown'}</span></td>
+            <td><code style="background:#f1f5f9; padding:4px 8px; border-radius:4px; border:1px solid #cbd5e1; color:var(--primary-dark); font-size:0.85rem;">${r.condition}</code></td>
+            <td><i class="fa fa-share text-muted-ff" style="margin-right:6px;"></i> ${r.nextStepId?.name || 'End Trip'}</td>
+            <td>${r.isActive ? '<span class="badge-pill badge-success">Active</span>' : '<span class="badge-pill badge-danger">Disabled</span>'}</td>
+            <td>
+              <button class="btn-icon" title="Edit Logic" onclick="Toast.show('Rule editor locked for demo.', 'info')"><i class="fa fa-pen"></i></button>
+            </td>
+          </tr>
+        `).join('');
+      } catch (err) { Toast.show(err.message, 'danger'); }
+    }
+
+    loadWorkflows();
+  </script>
+</body>
+</html>

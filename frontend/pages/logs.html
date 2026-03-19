@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>System Logs - Notorious Transport</title>
+  <link rel="stylesheet" href="../css/style.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+  <div id="sidebar" class="sidebar"></div>
+  
+  <div class="main-content">
+    <header class="topbar">
+      <div class="topbar-title">Audit Log & System Events</div>
+    </header>
+
+    <div class="page-content">
+      <div class="card-glass" style="padding:0; overflow:hidden;">
+        <table class="table-glass" id="logsTable">
+          <thead>
+            <tr>
+              <th>Timestamp</th>
+              <th>Workflow Node</th>
+              <th>Action / Event</th>
+              <th>Decision Logic</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr><td colspan="4" class="empty-state">Loading audit history...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <script src="../js/api.js"></script>
+  <script>
+    requireAuth();
+    renderSidebar('logs');
+
+    async function loadLogs() {
+      try {
+        const res = await API.get('/logs');
+        const tb = document.querySelector('#logsTable tbody');
+        
+        if (!res.data.length) {
+          tb.innerHTML = `<tr><td colspan="4" class="empty-state">No logs available.</td></tr>`;
+          return;
+        }
+
+        tb.innerHTML = res.data.map(l => {
+          let actionLabel = l.action;
+          if(l.result === 'success') actionLabel = `<span style="color:var(--success);"><i class="fa fa-check-circle"></i> ${l.action}</span>`;
+          if(l.result === 'failure') actionLabel = `<span style="color:var(--danger);"><i class="fa fa-times-circle"></i> ${l.action}</span>`;
+
+          return `
+            <tr>
+               <td style="color:var(--text-muted); font-size:0.8rem;">${fmtDate(l.timestamp)}</td>
+               <td>
+                 ${l.stepName ? `<div style="font-weight:600;">${l.stepName}</div><div style="font-size:0.75rem; color:var(--text-muted);">${l.stepType.toUpperCase()}</div>` : '<i class="text-muted-ff">System Level</i>'}
+               </td>
+               <td style="font-weight:500;">${actionLabel}</td>
+               <td>
+                 ${l.matchedCond ? `<div style="font-size:0.8rem; background:#f1f5f9; padding:4px 8px; border-radius:4px; border:1px solid #e2e8f0; display:inline-block; font-family:monospace; color:var(--primary-dark);">${l.matchedCond}</div>` : ''}
+                 ${l.decision ? `<div style="font-size:0.85rem; color:var(--text-muted); margin-top:4px;"><i class="fa fa-share"></i> ${l.decision}</div>` : ''}
+               </td>
+            </tr>
+          `;
+        }).join('');
+      } catch (err) { Toast.show(err.message, 'danger'); }
+    }
+
+    loadLogs();
+  </script>
+</body>
+</html>

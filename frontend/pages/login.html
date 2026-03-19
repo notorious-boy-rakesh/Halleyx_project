@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Login - Notorious Transport</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+  <link rel="stylesheet" href="../css/style.css">
+</head>
+
+<body>
+  <div class="bg-animated"></div>
+
+  <div class="auth-wrapper">
+    <div class="auth-card animate-fade-in" style="max-width:440px;width:90%;">
+      <!-- Logo -->
+      <div class="text-center mb-4">
+        <div class="gradient-text fw-700" style="font-size: 1.5rem; margin-bottom: 8px;">Notorious</div>
+        <div style="font-size: 0.9rem; color: var(--text-muted);">Sign in to your transport command center</div>
+      </div>
+
+      <h4 class="fw-700 mb-1" style="font-family:'Space Grotesk',sans-serif;">Welcome back 👋</h4>
+      <p class="text-muted-ff mb-4" style="font-size:0.87rem;">Sign in to your account to continue</p>
+
+      <!-- Alert -->
+      <div id="alertBox" class="d-none mb-3 p-3 rounded-3" style="font-size:0.85rem;"></div>
+
+      <form id="loginForm">
+        <div class="mb-3">
+          <label class="form-label-ff">Email Address</label>
+          <div class="position-relative">
+            <i class="fa fa-envelope position-absolute"
+              style="left:12px;top:50%;transform:translateY(-50%);color:var(--text-dim);font-size:0.85rem;"></i>
+            <input type="email" id="email" class="form-glass" style="padding-left:36px;" placeholder="you@example.com"
+              required>
+          </div>
+        </div>
+        <div class="mb-4">
+          <label class="form-label-ff">Password</label>
+          <div class="position-relative">
+            <i class="fa fa-lock position-absolute"
+              style="left:12px;top:50%;transform:translateY(-50%);color:var(--text-dim);font-size:0.85rem;"></i>
+            <input type="password" id="password" class="form-glass" style="padding-left:36px;" placeholder="••••••••"
+              required>
+            <i class="fa fa-eye position-absolute" id="togglePwd"
+              style="right:12px;top:50%;transform:translateY(-50%);color:var(--text-dim);cursor:pointer;font-size:0.85rem;"></i>
+          </div>
+        </div>
+        <button type="submit" class="btn-primary-grad w-100 justify-content-center mb-3"
+          style="height:46px;font-size:0.95rem;" id="loginBtn">
+          <i class="fa fa-sign-in-alt"></i> Sign In
+        </button>
+      </form>
+
+      <!-- Demo credentials -->
+      <div
+        style="background:rgba(108,71,255,0.08);border:1px solid rgba(108,71,255,0.2);border-radius:10px;padding:14px;margin-bottom:20px;">
+        <p
+          style="font-size:0.75rem;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--primary-light);margin-bottom:8px;">
+          <i class="fa fa-key me-1"></i> Demo Credentials
+        </p>
+        <div class="d-flex flex-column gap-1">
+          <span class="demo-cred" onclick="fillCreds('admin@notorious.com','Admin@123')"
+            style="font-size:0.8rem;cursor:pointer;color:var(--text-muted);padding:3px 6px;border-radius:6px;transition:background 0.2s;"
+            onmouseover="this.style.background='rgba(108,71,255,0.15)'"
+            onmouseout="this.style.background='transparent'">
+            🔴 Admin: admin@notorious.com / Admin@123
+          </span>
+          <span class="demo-cred" onclick="fillCreds('manager@notorious.com','Manager@123')"
+            style="font-size:0.8rem;cursor:pointer;color:var(--text-muted);padding:3px 6px;border-radius:6px;transition:background 0.2s;"
+            onmouseover="this.style.background='rgba(108,71,255,0.15)'"
+            onmouseout="this.style.background='transparent'">
+            🟡 Manager: manager@notorious.com / Manager@123
+          </span>
+          <span class="demo-cred" onclick="fillCreds('mike@notorious.com','User@123')"
+            style="font-size:0.8rem;cursor:pointer;color:var(--text-muted);padding:3px 6px;border-radius:6px;transition:background 0.2s;"
+            onmouseover="this.style.background='rgba(108,71,255,0.15)'"
+            onmouseout="this.style.background='transparent'">
+            🟢 Driver: mike@notorious.com / User@123
+          </span>
+        </div>
+      </div>
+
+      <p class="text-center" style="font-size:0.85rem;color:var(--text-muted);">
+        Don't have an account? <a href="register.html" style="color:var(--primary-light);font-weight:600;">Create one
+          →</a>
+      </p>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="../js/api.js"></script>
+  <script>
+    // Fill demo credentials
+    function fillCreds(email, pass) {
+      document.getElementById('email').value = email;
+      document.getElementById('password').value = pass;
+    }
+
+    // Toggle password
+    document.getElementById('togglePwd').addEventListener('click', function () {
+      const pwd = document.getElementById('password');
+      const icon = this;
+      if (pwd.type === 'password') { pwd.type = 'text'; icon.className = 'fa fa-eye-slash position-absolute'; }
+      else { pwd.type = 'password'; icon.className = 'fa fa-eye position-absolute'; }
+      icon.style.cssText = 'right:12px;top:50%;transform:translateY(-50%);color:var(--text-dim);cursor:pointer;font-size:0.85rem;';
+    });
+
+    // Check already logged in
+    if (localStorage.getItem('ff_token')) {
+      window.location.href = 'dashboard.html';
+    }
+
+    document.getElementById('loginForm').addEventListener('submit', async function (e) {
+      e.preventDefault();
+      const btn = document.getElementById('loginBtn');
+      btn.innerHTML = '<i class="fa fa-spinner fa-spin"></i> Signing in...';
+      btn.disabled = true;
+
+      const alertBox = document.getElementById('alertBox');
+      try {
+        const res = await API.post('/auth/login', {
+          email: document.getElementById('email').value,
+          password: document.getElementById('password').value
+        });
+        localStorage.setItem('ff_token', res.token);
+        localStorage.setItem('ff_user', JSON.stringify(res.user));
+        window.location.href = 'dashboard.html';
+      } catch (err) {
+        alertBox.className = 'mb-3 p-3 rounded-3';
+        alertBox.style.cssText = 'background:rgba(239,68,68,0.12);border:1px solid rgba(239,68,68,0.3);color:#f87171;font-size:0.85rem;';
+        alertBox.innerHTML = `<i class="fa fa-exclamation-circle me-2"></i>${err.message || 'Login failed. Please try again.'}`;
+        btn.innerHTML = '<i class="fa fa-sign-in-alt"></i> Sign In';
+        btn.disabled = false;
+      }
+    });
+  </script>
+</body>
+
+</html>

@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Register - Notorious Transport</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+  <link rel="stylesheet" href="../css/style.css">
+</head>
+<body>
+  <div class="bg-animated"></div>
+  <div class="auth-wrapper">
+    <div class="auth-card animate-fade-in" style="max-width:460px;width:90%;">
+      <div class="text-center mb-4">
+        <div style="display:inline-flex;align-items:center;gap:12px;margin-bottom:8px;">
+          <div style="width:48px;height:48px;border-radius:12px;background:linear-gradient(135deg,#6c47ff,#00d2ff);display:flex;align-items:center;justify-content:center;font-size:22px;box-shadow:0 4px 20px rgba(108,71,255,0.5);">⚡</div>
+          <span style="font-family:'Space Grotesk',sans-serif;font-size:1.6rem;font-weight:800;background:linear-gradient(135deg,#6c47ff,#00d2ff);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;">Notorious</span>
+        </div>
+      </div>
+
+      <h4 class="fw-700 mb-1">Create your account ✨</h4>
+      <p class="text-muted-ff mb-4" style="font-size:0.87rem;">Start automating your workflows today</p>
+
+      <div id="alertBox" class="d-none mb-3 p-3 rounded-3" style="font-size:0.85rem;"></div>
+
+      <form id="registerForm">
+        <div class="mb-3">
+          <label class="form-label-ff">Full Name</label>
+          <div class="position-relative">
+            <i class="fa fa-user position-absolute" style="left:12px;top:50%;transform:translateY(-50%);color:var(--text-dim);font-size:0.85rem;"></i>
+            <input type="text" id="name" class="form-glass" style="padding-left:36px;" placeholder="John Doe" required>
+          </div>
+        </div>
+        <div class="mb-3">
+          <label class="form-label-ff">Email Address</label>
+          <div class="position-relative">
+            <i class="fa fa-envelope position-absolute" style="left:12px;top:50%;transform:translateY(-50%);color:var(--text-dim);font-size:0.85rem;"></i>
+            <input type="email" id="email" class="form-glass" style="padding-left:36px;" placeholder="you@example.com" required>
+          </div>
+        </div>
+        <div class="mb-3">
+          <label class="form-label-ff">Role</label>
+          <select id="role" class="form-glass">
+            <option value="user">User</option>
+            <option value="manager">Manager</option>
+            <option value="admin">Admin</option>
+          </select>
+        </div>
+        <div class="mb-4">
+          <label class="form-label-ff">Password</label>
+          <div class="position-relative">
+            <i class="fa fa-lock position-absolute" style="left:12px;top:50%;transform:translateY(-50%);color:var(--text-dim);font-size:0.85rem;"></i>
+            <input type="password" id="password" class="form-glass" style="padding-left:36px;" placeholder="Min 6 characters" required>
+          </div>
+        </div>
+        <button type="submit" class="btn-primary-grad w-100 justify-content-center mb-3" style="height:46px;font-size:0.95rem;" id="regBtn">
+          <i class="fa fa-rocket"></i> Create Account
+        </button>
+      </form>
+
+      <p class="text-center" style="font-size:0.85rem;color:var(--text-muted);">
+        Already have an account? <a href="login.html" style="color:var(--primary-light);font-weight:600;">Sign in →</a>
+      </p>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="../js/api.js"></script>
+  <script>
+    if (localStorage.getItem('ff_token')) window.location.href = 'dashboard.html';
+
+    document.getElementById('registerForm').addEventListener('submit', async function(e) {
+      e.preventDefault();
+      const btn = document.getElementById('regBtn');
+      btn.innerHTML = '<i class="fa fa-spinner fa-spin"></i> Creating...';
+      btn.disabled = true;
+      const alertBox = document.getElementById('alertBox');
+      try {
+        const res = await API.post('/auth/register', {
+          name:     document.getElementById('name').value,
+          email:    document.getElementById('email').value,
+          password: document.getElementById('password').value,
+          role:     document.getElementById('role').value
+        });
+        localStorage.setItem('ff_token', res.token);
+        localStorage.setItem('ff_user',  JSON.stringify(res.user));
+        window.location.href = 'dashboard.html';
+      } catch (err) {
+        alertBox.style.cssText = 'background:rgba(239,68,68,0.12);border:1px solid rgba(239,68,68,0.3);color:#f87171;font-size:0.85rem;display:block;';
+        alertBox.innerHTML = `<i class="fa fa-exclamation-circle me-2"></i>${err.message || 'Registration failed.'}`;
+        alertBox.classList.remove('d-none');
+        btn.innerHTML = '<i class="fa fa-rocket"></i> Create Account';
+        btn.disabled = false;
+      }
+    });
+  </script>
+</body>
+</html>

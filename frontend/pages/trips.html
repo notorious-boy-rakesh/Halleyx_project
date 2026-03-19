@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Trips - Notorious Transport</title>
+  <link rel="stylesheet" href="../css/style.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+  <div id="sidebar" class="sidebar"></div>
+  
+  <div class="main-content">
+    <header class="topbar">
+      <div class="topbar-title">Active Trips Fleet</div>
+      <div class="topbar-actions">
+        <button id="btnNew" class="btn-primary-grad" style="display:none;"><i class="fa fa-plus"></i> Dispatch New Trip</button>
+      </div>
+    </header>
+
+    <div class="page-content">
+      <div class="card-glass" style="padding:0; overflow:hidden;">
+        <table class="table-glass" id="tripsTable">
+          <thead>
+            <tr>
+              <th>Routing</th>
+              <th>Truck / Driver</th>
+              <th>Freight</th>
+              <th>Status</th>
+              <th>Expected Revenue</th>
+              <th>Node</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr><td colspan="7" class="empty-state"><i class="fa fa-spinner fa-spin"></i> Loading trips...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <script src="../js/api.js"></script>
+  <script>
+    const user = requireAuth();
+    renderSidebar('trips');
+
+    if (user.role !== 'driver') {
+      document.getElementById('btnNew').style.display = 'inline-flex';
+      // In a real app we would wire up a modal to create a trip.
+      document.getElementById('btnNew').onclick = () => alert('Trip creation modal placeholder. (Auto-seed generates trips).');
+    }
+
+    async function loadTrips() {
+      try {
+        const res = await API.get('/trips');
+        const tb = document.querySelector('#tripsTable tbody');
+        
+        if (!res.data.length) {
+          tb.innerHTML = `<tr><td colspan="7" class="empty-state">No trips found.</td></tr>`;
+          return;
+        }
+
+        tb.innerHTML = res.data.map(t => {
+          return `
+            <tr>
+              <td>
+                <div style="font-weight:600;">${t.origin}</div>
+                <div style="font-size:0.8rem; color:var(--text-muted);"><i class="fa fa-arrow-right"></i> ${t.destination}</div>
+              </td>
+              <td>
+                <div><i class="fa fa-truck text-muted-ff"></i> ${t.truckId?.registrationNumber || 'Unassigned'}</div>
+                <div style="font-size:0.8rem; color:var(--text-dim);"><i class="fa fa-user"></i> ${t.driverId?.name || 'Unassigned'}</div>
+              </td>
+              <td>${t.weightTons} T<br><span class="text-tiny text-muted-ff">${t.freightType}</span></td>
+              <td>${statusBadge(t.status)}</td>
+              <td style="font-weight:600; color:var(--success);">₹${t.expectedRevenue}</td>
+              <td>
+                ${t.currentStepId ? `<span class="badge-pill badge-primary"><i class="fa fa-map-marker-alt"></i> ${t.currentStepId.name}</span>` : '<span class="text-muted-ff">—</span>'}
+              </td>
+              <td>
+                <div style="display:flex; gap:8px;">
+                  <button class="btn-icon" onclick="window.location.href='execution.html?id=${t._id}'" title="Live Tracker"><i class="fa fa-satellite-dish"></i></button>
+                  <button class="btn-icon" onclick="window.location.href='expenses.html?tripId=${t._id}'" title="Logging"><i class="fa fa-receipt"></i></button>
+                </div>
+              </td>
+            </tr>
+          `;
+        }).join('');
+
+      } catch (err) {
+        Toast.show(err.message, 'danger');
+      }
+    }
+
+    loadTrips();
+  </script>
+</body>
+</html>

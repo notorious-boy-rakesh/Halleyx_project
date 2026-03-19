@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>FlowForge – Workflows</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+  <link rel="stylesheet" href="../css/style.css">
+</head>
+<body>
+<div class="bg-animated"></div>
+<aside class="sidebar" id="sidebar"></aside>
+
+<div class="main-content">
+  <div class="topbar">
+    <div>
+      <div class="topbar-title">⚙️ Workflows</div>
+      <div style="font-size:0.78rem;color:var(--text-muted)">Manage your automation workflows</div>
+    </div>
+    <div class="topbar-actions">
+      <div class="search-wrap">
+        <i class="fa fa-search search-icon"></i>
+        <input type="text" id="searchInput" class="form-glass" placeholder="Search workflows..." style="width:200px;">
+      </div>
+      <button class="btn-primary-grad" onclick="openCreateModal()">
+        <i class="fa fa-plus"></i> New Workflow
+      </button>
+    </div>
+  </div>
+
+  <div class="page-content animate-fade-in">
+    <!-- Stats row -->
+    <div class="row g-3 mb-4" id="wfStatsRow"></div>
+
+    <!-- Workflows Table -->
+    <div class="card-glass p-4">
+      <div class="section-header mb-3">
+        <div class="section-title">All Workflows</div>
+        <span class="badge-pill badge-purple" id="wfCount">0 workflows</span>
+      </div>
+      <div class="table-responsive">
+        <table class="table-glass w-100">
+          <thead>
+            <tr>
+              <th>Workflow</th>
+              <th>Status</th>
+              <th>Version</th>
+              <th>Runs</th>
+              <th>Success Rate</th>
+              <th>Created By</th>
+              <th>Last Updated</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="wfTableBody">
+            <tr><td colspan="8" class="text-center p-5 text-muted-ff"><i class="fa fa-spinner fa-spin me-2"></i>Loading...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Create/Edit Modal -->
+<div class="modal fade" id="wfModal" tabindex="-1">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="modalTitle">✨ Create Workflow</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body p-4">
+        <input type="hidden" id="editId">
+        <div class="row g-3">
+          <div class="col-12">
+            <label class="form-label-ff">Workflow Name *</label>
+            <input type="text" id="wfName" class="form-glass" placeholder="e.g. Purchase Approval Process">
+          </div>
+          <div class="col-12">
+            <label class="form-label-ff">Description</label>
+            <textarea id="wfDesc" class="form-glass" rows="3" placeholder="Describe what this workflow does..."></textarea>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label-ff">Tags (comma-separated)</label>
+            <input type="text" id="wfTags" class="form-glass" placeholder="e.g. finance, approval">
+          </div>
+          <div class="col-md-6">
+            <label class="form-label-ff">Status</label>
+            <select id="wfActive" class="form-glass">
+              <option value="true">Active</option>
+              <option value="false">Inactive</option>
+            </select>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn-glass" data-bs-dismiss="modal">Cancel</button>
+        <button type="button" class="btn-primary-grad" onclick="saveWorkflow()">
+          <i class="fa fa-save"></i> <span id="saveLabel">Create Workflow</span>
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Version History Modal -->
+<div class="modal fade" id="versionsModal" tabindex="-1">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">📁 Version History</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body p-4" id="versionsList"></div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="../js/api.js"></script>
+<script>
+requireAuth();
+renderSidebar('workflows');
+
+let workflows = [];
+let wfModal, versionsModal;
+
+window.addEventListener('DOMContentLoaded', () => {
+  wfModal       = new bootstrap.Modal(document.getElementById('wfModal'));
+  versionsModal = new bootstrap.Modal(document.getElementById('versionsModal'));
+  loadWorkflows();
+  document.getElementById('searchInput').addEventListener('input', filterWorkflows);
+});
+
+async function loadWorkflows() {
+  try {
+    const statsRes = await API.get('/workflows/stats/overview');
+    const s = statsRes.data;
+    document.getElementById('wfStatsRow').innerHTML = `
+      <div class="col-6 col-md-3">
+        <div class="stat-card purple p-3">
+          <div class="stat-icon purple" style="width:40px;height:40px;font-size:1.1rem;margin-bottom:10px;">⚙️</div>
+          <div class="stat-value gradient-text" style="font-size:1.6rem;">${s.totalWorkflows}</div>
+          <div class="stat-label">Workflows</div>
+        </div>
+      </div>
+      <div class="col-6 col-md-3">
+        <div class="stat-card blue p-3">
+          <div class="stat-icon blue" style="width:40px;height:40px;font-size:1.1rem;margin-bottom:10px;">▶️</div>
+          <div class="stat-value" style="font-size:1.6rem;background:linear-gradient(135deg,#00d2ff,#6c47ff);-webkit-background-clip:text;-webkit-text-fill-color:transparent;">${s.totalExecutions}</div>
+          <div class="stat-label">Executions</div>
+        </div>
+      </div>
+      <div class="col-6 col-md-3">
+        <div class="stat-card green p-3">
+          <div class="stat-icon green" style="width:40px;height:40px;font-size:1.1rem;margin-bottom:10px;">✅</div>
+          <div class="stat-value" style="font-size:1.6rem;background:linear-gradient(135deg,#10b981,#06b6d4);-webkit-background-clip:text;-webkit-text-fill-color:transparent;">${s.successRate}%</div>
+          <div class="stat-label">Success Rate</div>
+        </div>
+      </div>
+      <div class="col-6 col-md-3">
+        <div class="stat-card orange p-3">
+          <div class="stat-icon orange" style="width:40px;height:40px;font-size:1.1rem;margin-bottom:10px;">❌</div>
+          <div class="stat-value" style="font-size:1.6rem;background:linear-gradient(135deg,#ff6b6b,#ff9f43);-webkit-background-clip:text;-webkit-text-fill-color:transparent;">${s.totalFailed}</div>
+          <div class="stat-label">Failed</div>
+        </div>
+      </div>
+    `;
+
+    const res = await API.get('/workflows');
+    workflows = res.data;
+    renderTable(workflows);
+    document.getElementById('wfCount').textContent = `${workflows.length} workflow${workflows.length !== 1 ? 's' : ''}`;
+  } catch(err) {
+    Toast.show('Error loading workflows: ' + err.message, 'danger');
+  }
+}
+
+function renderTable(data) {
+  const tbody = document.getElementById('wfTableBody');
+  if (!data.length) {
+    tbody.innerHTML = `<tr><td colspan="8"><div class="empty-state"><div class="empty-icon">⚙️</div><p>No workflows found. <button class="btn-primary-grad" onclick="openCreateModal()" style="margin-top:12px;">Create your first workflow</button></p></div></td></tr>`;
+    return;
+  }
+  tbody.innerHTML = data.map(w => {
+    const rate = w.stats?.totalExecutions ? Math.round((w.stats.successCount / w.stats.totalExecutions)*100) : 0;
+    const tags = (w.tags || []).map(t => `<span class="badge-pill badge-purple" style="font-size:0.65rem;">${t}</span>`).join('');
+    return `
+    <tr>
+      <td>
+        <div style="font-weight:600;">${w.name}</div>
+        <div style="font-size:0.75rem;color:var(--text-muted);margin-top:3px;">${w.description ? w.description.substring(0,60) + (w.description.length > 60 ? '…' : '') : '—'}</div>
+        <div style="margin-top:4px;">${tags}</div>
+      </td>
+      <td>${statusBadge(w.isActive ? 'success' : 'failed').replace('success','active').replace('failed','inactive')}</td>
+      <td><span class="badge-pill badge-info">v${w.version}</span></td>
+      <td style="font-weight:600;">${w.stats?.totalExecutions || 0}</td>
+      <td>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <div class="progress-ff" style="width:70px;">
+            <div class="progress-ff-bar" style="width:${rate}%;background:${rate>=70 ? 'linear-gradient(135deg,#10b981,#06b6d4)' : rate>=40 ? 'linear-gradient(135deg,#f59e0b,#ff9f43)' : 'linear-gradient(135deg,#ef4444,#ff6b6b)'};"></div>
+          </div>
+          <span style="font-size:0.8rem;font-weight:600;">${rate}%</span>
+        </div>
+      </td>
+      <td style="color:var(--text-muted);font-size:0.83rem;">${w.createdBy?.name || '—'}</td>
+      <td style="color:var(--text-muted);font-size:0.8rem;">${fmtDate(w.updatedAt)}</td>
+      <td>
+        <div style="display:flex;gap:6px;">
+          <a href="builder.html?wf=${w._id}" class="btn-icon success" title="Build"><i class="fa fa-cog" style="font-size:0.8rem;"></i></a>
+          <a href="execution.html?wf=${w._id}" class="btn-icon" title="Execute" style="color:var(--accent);border-color:rgba(0,210,255,0.3);"><i class="fa fa-play" style="font-size:0.8rem;"></i></a>
+          <button class="btn-icon" onclick="editWorkflow(${JSON.stringify(w).replace(/"/g,'&quot;')})" title="Edit"><i class="fa fa-edit" style="font-size:0.8rem;"></i></button>
+          <button class="btn-icon" onclick="showVersions('${w._id}',${JSON.stringify(w.versions||[]).replace(/"/g,'&quot;')})" title="Versions"><i class="fa fa-history" style="font-size:0.8rem;"></i></button>
+          <button class="btn-icon danger" onclick="deleteWorkflow('${w._id}','${w.name}')" title="Delete"><i class="fa fa-trash" style="font-size:0.8rem;"></i></button>
+        </div>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+function filterWorkflows() {
+  const q = document.getElementById('searchInput').value.toLowerCase();
+  const filtered = workflows.filter(w => w.name.toLowerCase().includes(q) || (w.description||'').toLowerCase().includes(q));
+  renderTable(filtered);
+}
+
+function openCreateModal() {
+  document.getElementById('editId').value = '';
+  document.getElementById('wfName').value = '';
+  document.getElementById('wfDesc').value = '';
+  document.getElementById('wfTags').value = '';
+  document.getElementById('wfActive').value = 'true';
+  document.getElementById('modalTitle').textContent = '✨ Create Workflow';
+  document.getElementById('saveLabel').textContent = 'Create Workflow';
+  wfModal.show();
+}
+
+function editWorkflow(w) {
+  document.getElementById('editId').value = w._id;
+  document.getElementById('wfName').value = w.name;
+  document.getElementById('wfDesc').value = w.description || '';
+  document.getElementById('wfTags').value = (w.tags || []).join(', ');
+  document.getElementById('wfActive').value = String(w.isActive);
+  document.getElementById('modalTitle').textContent = '✏️ Edit Workflow';
+  document.getElementById('saveLabel').textContent = 'Update Workflow';
+  wfModal.show();
+}
+
+async function saveWorkflow() {
+  const id      = document.getElementById('editId').value;
+  const payload = {
+    name:        document.getElementById('wfName').value,
+    description: document.getElementById('wfDesc').value,
+    tags:        document.getElementById('wfTags').value.split(',').map(t => t.trim()).filter(Boolean),
+    isActive:    document.getElementById('wfActive').value === 'true'
+  };
+  if (!payload.name) { Toast.show('Workflow name is required.', 'warning'); return; }
+  try {
+    if (id) { await API.put(`/workflows/${id}`, payload); Toast.show('Workflow updated!', 'success'); }
+    else    { await API.post('/workflows', payload);       Toast.show('Workflow created!', 'success'); }
+    wfModal.hide();
+    loadWorkflows();
+  } catch(err) { Toast.show(err.message, 'danger'); }
+}
+
+async function deleteWorkflow(id, name) {
+  if (!confirm(`Delete workflow "${name}"? This will also delete all steps and rules.`)) return;
+  try {
+    await API.delete(`/workflows/${id}`);
+    Toast.show('Workflow deleted.', 'info');
+    loadWorkflows();
+  } catch(err) { Toast.show(err.message, 'danger'); }
+}
+
+function showVersions(wfId, versions) {
+  if (!versions || !versions.length) {
+    document.getElementById('versionsList').innerHTML = `<div class="empty-state"><div class="empty-icon">📁</div><p>No saved versions yet. Save a version from the Builder page.</p></div>`;
+  } else {
+    document.getElementById('versionsList').innerHTML = versions.map(v => `
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:14px;border:1px solid var(--glass-border);border-radius:var(--radius);margin-bottom:8px;">
+        <div>
+          <div style="font-weight:700;">Version ${v.versionNumber}</div>
+          <div style="font-size:0.8rem;color:var(--text-muted);">${v.note || '—'} · ${fmtDate(v.savedAt)}</div>
+        </div>
+        <button class="btn-glass" style="font-size:0.8rem;" onclick="rollback('${wfId}', ${v.versionNumber})">
+          <i class="fa fa-undo"></i> Rollback
+        </button>
+      </div>
+    `).join('');
+  }
+  versionsModal.show();
+}
+
+async function rollback(wfId, versionNumber) {
+  if (!confirm(`Rollback to version ${versionNumber}? Current steps and rules will be replaced.`)) return;
+  try {
+    await API.post(`/workflows/${wfId}/rollback/${versionNumber}`, {});
+    Toast.show(`Rolled back to version ${versionNumber}!`, 'success');
+    versionsModal.hide();
+  } catch(err) { Toast.show(err.message, 'danger'); }
+}
+</script>
+</body>
+</html>

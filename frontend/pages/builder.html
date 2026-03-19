@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Route Builder - Notorious</title>
+  <link rel="stylesheet" href="../css/style.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+  <div id="sidebar" class="sidebar"></div>
+  
+  <div class="main-content">
+    <header class="topbar">
+      <div class="topbar-title">Transport Workflow Mapper</div>
+      <div class="topbar-actions">
+        <select id="wfSelect" class="form-glass" style="width: 250px;"></select>
+        <button class="btn-primary-grad" onclick="Toast.show('Saved workflow layout!','success')"><i class="fa fa-save"></i> Save Map</button>
+      </div>
+    </header>
+
+    <div class="page-content">
+      <div class="card-glass" style="padding:0; overflow:hidden;">
+        <!-- Toolbar -->
+        <div style="padding:16px 24px; border-bottom:1px solid var(--glass-border); background:#f8fafc; display:flex; gap:12px;">
+           <button class="btn-glass"><i class="fa fa-plus"></i> Task Node</button>
+           <button class="btn-glass"><i class="fa fa-plus" style="color:var(--warning)"></i> Approval Node</button>
+           <button class="btn-glass"><i class="fa fa-plus" style="color:var(--info)"></i> Transit Node</button>
+           <div style="margin-left:auto; display:flex; gap:8px;">
+             <span style="font-size:0.8rem; color:var(--text-muted); align-self:center;">Drag nodes to map the transport lifecycle sequence.</span>
+           </div>
+        </div>
+        
+        <!-- Canvas area -->
+        <div id="builderCanvas" style="height: 600px; position:relative; overflow:hidden;">
+           <svg id="svgCanvas" style="position:absolute; top:0; left:0; width:100%; height:100%; pointer-events:none;"></svg>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="../js/api.js"></script>
+  <script>
+    const user = requireAuth();
+    renderSidebar('builder');
+    
+    // Redirect drivers
+    if(user.role === 'driver') window.location.href = 'trips.html';
+
+    async function loadWorkflows() {
+      try {
+        const res = await API.get('/workflows');
+        const sel = document.getElementById('wfSelect');
+        sel.innerHTML = res.data.map(w => `<option value="${w._id}">${w.name}</option>`).join('');
+        if(sel.options.length) loadMap(sel.value);
+        sel.onchange = (e) => loadMap(e.target.value);
+      } catch (err) { Toast.show(err.message, 'danger'); }
+    }
+
+    async function loadMap(wfId) {
+      document.getElementById('builderCanvas').querySelectorAll('.flow-node').forEach(n => n.remove());
+      const svg = document.getElementById('svgCanvas');
+      svg.innerHTML = '';
+
+      try {
+        const res = await API.get(`/workflows/${wfId}`);
+        const steps = res.data.steps || [];
+        
+        steps.forEach(s => {
+          const div = document.createElement('div');
+          div.className = `flow-node ${s.type}-node ${s.isStart?'start-node':''} ${s.isEnd?'end-node':''}`;
+          div.style.left = (s.position?.x || Math.random()*400+50) + 'px';
+          div.style.top  = (s.position?.y || Math.random()*200+50) + 'px';
+          
+          let icon = 'fa-cog';
+          if(s.type === 'approval') icon = 'fa-check-circle text-warning';
+          if(s.type === 'notification') icon = 'fa-bell text-info';
+          if(s.isStart) icon = 'fa-flag text-success';
+          if(s.isEnd) icon = 'fa-flag-checkered text-danger';
+
+          div.innerHTML = `
+            <div class="node-port in"></div>
+            <div class="node-header">
+              <div class="node-icon"><i class="fa ${icon}"></i></div>
+              <div>
+                <div class="node-title">${s.name}</div>
+                <div class="node-type">${s.type}</div>
+              </div>
+            </div>
+            <div class="node-port out"></div>
+          `;
+          document.getElementById('builderCanvas').appendChild(div);
+        });
+        Toast.show('Workflow Map loaded');
+      } catch (err) { Toast.show(err.message, 'danger'); }
+    }
+
+    loadWorkflows();
+  </script>
+</body>
+</html>

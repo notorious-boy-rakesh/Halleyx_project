@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Expenses - Notorious Transport</title>
+  <link rel="stylesheet" href="../css/style.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+  <div id="sidebar" class="sidebar"></div>
+  
+  <div class="main-content">
+    <header class="topbar">
+      <div class="topbar-title">Driver Expense Logging</div>
+    </header>
+
+    <div class="page-content">
+      <div style="display:flex; gap:24px; flex-wrap:wrap;">
+        
+        <!-- Form -->
+        <div class="card-glass" style="flex:1; min-width:300px; padding:24px; height:fit-content;">
+          <h3 style="margin-bottom: 20px;">Log New Expense</h3>
+          <form id="expenseForm">
+            <div style="margin-bottom: 16px;">
+              <label class="form-label-ff">Active Trip</label>
+              <select id="tripId" class="form-glass" required></select>
+            </div>
+            <div style="margin-bottom: 16px;">
+              <label class="form-label-ff">Category</label>
+              <select id="category" class="form-glass" required>
+                <option value="Fuel">Fuel</option>
+                <option value="Toll">Toll</option>
+                <option value="Repair">Maintenance/Repair</option>
+                <option value="Food">Food & Lodging</option>
+                <option value="Other">Other Operational</option>
+              </select>
+            </div>
+            <div style="margin-bottom: 16px;">
+              <label class="form-label-ff">Amount (₹)</label>
+              <input type="number" id="amount" class="form-glass" step="0.01" min="0" placeholder="e.g. 1500.00" required>
+            </div>
+            <div style="margin-bottom: 20px;">
+              <label class="form-label-ff">Location / Stop</label>
+              <input type="text" id="location" class="form-glass" placeholder="e.g. Flying J, TX">
+            </div>
+            <button type="submit" class="btn-primary-grad" style="width:100%; justify-content:center;">
+              <i class="fa fa-receipt"></i> Submit Expense
+            </button>
+          </form>
+        </div>
+
+        <!-- History -->
+        <div class="card-glass" style="flex:2; min-width:500px; padding:0; overflow:hidden;">
+          <div style="padding:16px 20px; border-bottom:1px solid var(--glass-border); background:#f8fafc;">
+            <h3 style="font-size:1.1rem; margin:0;">Recent Expenses Logged</h3>
+          </div>
+          <table class="table-glass" id="expensesTable">
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th>Trip Routing</th>
+                <th>Category</th>
+                <th>Location</th>
+                <th>Amount</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody>
+               <tr><td colspan="6" class="empty-state">Loading...</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <script src="../js/api.js"></script>
+  <script>
+    const user = requireAuth();
+    renderSidebar('expenses');
+
+    async function loadTrips() {
+      try {
+        const res = await API.get('/trips');
+        const sel = document.getElementById('tripId');
+        // Drivers log against active running or paused trips ideally
+        sel.innerHTML = res.data.map(t => `<option value="${t._id}">${t.origin} to ${t.destination} [${t.status}]</option>`).join('');
+      } catch (err) {}
+    }
+
+    async function loadExpenses() {
+      try {
+        const res = await API.get('/expenses');
+        const tb = document.querySelector('#expensesTable tbody');
+        
+        if(!res.data.length) {
+          tb.innerHTML = `<tr><td colspan="6" class="empty-state">No expense history found.</td></tr>`;
+          return;
+        }
+
+        tb.innerHTML = res.data.map(ex => `
+          <tr>
+            <td style="color:var(--text-muted); font-size:0.8rem;">${fmtDate(ex.date)}</td>
+            <td><i class="fa fa-route text-muted-ff"></i> ${ex.tripId?.origin || 'Unknown'} <i class="fa fa-arrow-right text-tiny"></i> ${ex.tripId?.destination || ''}</td>
+            <td><strong>${ex.category}</strong></td>
+            <td>${ex.location || '—'}</td>
+            <td style="font-weight:600;">₹${ex.amount}</td>
+            <td>
+              ${ex.isAnomalous 
+                ? `<span class="badge-pill badge-danger" data-tooltip="${ex.anomalyReason}"><i class="fa fa-exclamation-triangle"></i> Flagged</span>` 
+                : `<span class="badge-pill badge-success"><i class="fa fa-check"></i> Verified</span>`}
+            </td>
+          </tr>
+        `).join('');
+      } catch (err) { Toast.show(err.message, 'danger'); }
+    }
+
+    document.getElementById('expenseForm').onsubmit = async (e) => {
+      e.preventDefault();
+      const payload = {
+        tripId: document.getElementById('tripId').value,
+        category: document.getElementById('category').value,
+        amount: Number(document.getElementById('amount').value),
+        location: document.getElementById('location').value
+      };
+
+      try {
+        const res = await API.post('/expenses', payload);
+        Toast.show('Expense submitted successfully!', 'success');
+        
+        if (res.data.isAnomalous) {
+           Toast.show(`ALERT: Expense flagged for Anomaly. ${res.data.anomalyReason}`, 'danger', 10000);
+        }
+
+        e.target.reset();
+        loadExpenses();
+      } catch (err) {
+        Toast.show(err.message, 'danger');
+      }
+    };
+
+    loadTrips();
+    loadExpenses();
+  </script>
+</body>
+</html>

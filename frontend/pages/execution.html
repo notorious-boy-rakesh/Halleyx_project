@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Live Execution Tracker - Notorious</title>
+  <link rel="stylesheet" href="../css/style.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+  <div id="sidebar" class="sidebar"></div>
+  
+  <div class="main-content">
+    <header class="topbar">
+      <div class="topbar-title">Live Trip Tracker</div>
+      <div class="topbar-actions">
+        <select id="tripSelect" class="form-glass" style="width:300px;"></select>
+        <button class="btn-primary-grad" onclick="refreshTracker()"><i class="fa fa-sync"></i> Refresh View</button>
+      </div>
+    </header>
+
+    <div class="page-content">
+      <div style="display:grid; grid-template-columns: 2fr 1fr; gap: 24px;">
+        
+        <!-- Live Tracker Visuals -->
+        <div class="card-glass" style="padding:24px;">
+          <h3 style="margin-bottom: 24px; border-bottom: 1px solid var(--glass-border); padding-bottom: 10px;">Lifecycle Route Map</h3>
+          <div id="trackerData" class="step-tracker">
+            <div class="empty-state">Select a trip to track active lifecycle nodes.</div>
+          </div>
+        </div>
+
+        <!-- Trip Context Panel -->
+        <div class="card-glass" style="padding:24px; height:fit-content;">
+          <h3 style="margin-bottom: 16px;">Trip Details</h3>
+          <div id="tripDetails"></div>
+          
+          <hr style="border:0; border-top:1px solid var(--glass-border); margin: 20px 0;">
+          
+          <h4 style="margin-bottom: 12px; font-size:0.9rem; color:var(--text-muted);">Manager Actions</h4>
+          <div id="managerActions" style="display:flex; flex-direction:column; gap:10px;">
+             <p class="text-tiny text-muted-ff">No manual actions required at this node.</p>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <script src="../js/api.js"></script>
+  <script>
+    const user = requireAuth();
+    renderSidebar('execution');
+
+    const urlParams = new URLSearchParams(window.location.search);
+    const initTripId = urlParams.get('id');
+
+    async function loadTrips() {
+      try {
+        const res = await API.get('/trips');
+        const select = document.getElementById('tripSelect');
+        select.innerHTML = res.data.map(t => `<option value="${t._id}">${t.origin} ➔ ${t.destination} [${t.status.toUpperCase()}]</option>`).join('');
+        
+        if (initTripId) select.value = initTripId;
+        if (select.options.length) refreshTracker(select.value);
+        
+        select.onchange = (e) => refreshTracker(e.target.value);
+      } catch(e) {}
+    }
+
+    async function refreshTracker(tripId) {
+      tripId = tripId || document.getElementById('tripSelect').value;
+      if (!tripId) return;
+
+      try {
+        const res = await API.get(`/trips/${tripId}`);
+        const trip = res.data;
+        const workflow = trip.workflowId;
+        
+        // Render Details
+        document.getElementById('tripDetails').innerHTML = `
+          <div style="margin-bottom:8px;"><strong style="width:100px;display:inline-block;color:var(--text-muted);font-size:0.85rem;">Driver:</strong> <span>${trip.driverId?.name}</span></div>
+          <div style="margin-bottom:8px;"><strong style="width:100px;display:inline-block;color:var(--text-muted);font-size:0.85rem;">Truck:</strong> <span>${trip.truckId?.registrationNumber}</span></div>
+          <div style="margin-bottom:8px;"><strong style="width:100px;display:inline-block;color:var(--text-muted);font-size:0.85rem;">Expected Rev:</strong> <span style="color:var(--success);font-weight:600;">₹${trip.expectedRevenue}</span></div>
+          <div style="margin-bottom:8px;"><strong style="width:100px;display:inline-block;color:var(--text-muted);font-size:0.85rem;">Actual Cost:</strong> <span style="color:var(--danger);font-weight:600;">₹${trip.totalActualCost}</span></div>
+          <div style="margin-bottom:8px;"><strong style="width:100px;display:inline-block;color:var(--text-muted);font-size:0.85rem;">Status:</strong> ${statusBadge(trip.status)}</div>
+        `;
+
+        // Render Actions (If Paused Approval Node)
+        const actionsDiv = document.getElementById('managerActions');
+        if (trip.status === 'paused' && user.role !== 'driver') {
+          actionsDiv.innerHTML = `
+            <div style="padding:12px; background:#fef3c7; border:1px solid #fcd34d; border-radius:6px; margin-bottom:10px;">
+               <strong style="color:#92400e; font-size:0.85rem;"><i class="fa fa-hand-paper"></i> Manual Approval Required</strong>
+               <p style="font-size:0.75rem; color:#b45309; margin-top:4px;">Workflow is waiting for clearance to proceed to the next lifecycle node.</p>
+            </div>
+            <button class="btn-primary-grad" onclick="continueTrip('${trip._id}')" style="width:100%; justify-content:center;">Approve & Continue Route</button>
+          `;
+        } else {
+          actionsDiv.innerHTML = `<p class="text-tiny text-muted-ff">No manual actions required at this node.</p>`;
+        }
+
+        // Render Workflow Steps tracking
+        const steps = workflow.steps || [];
+        const historyIds = trip.stepHistory.map(h => h.stepId);
+        
+        document.getElementById('trackerData').innerHTML = steps.map(s => {
+          const isCurrent = trip.currentStepId && trip.currentStepId._id === s._id;
+          const isCompleted = historyIds.includes(s._id) && !isCurrent;
+          
+          let state = 'info';
+          let icon = 'fa-circle';
+          if (isCompleted) { state = 'success'; icon = 'fa-check'; }
+          if (isCurrent) { state = 'running'; icon = 'fa-truck-moving'; }
+          if (isCurrent && trip.status === 'paused') { state = 'warning'; icon = 'fa-pause'; }
+          if (isCurrent && trip.status === 'failed') { state = 'failure'; icon = 'fa-times'; }
+
+          return `
+            <div class="step-track-item">
+              <div class="step-track-dot ${state}"><i class="fa ${icon}"></i></div>
+              <div style="flex:1; padding-top:4px;">
+                <div style="display:flex; justify-content:space-between;">
+                  <span style="font-weight:600; color:${isCurrent?'var(--primary)':'var(--text)'}; font-size:0.95rem;">${s.name}</span>
+                  ${typeBadge(s.type)}
+                </div>
+                ${isCurrent ? `<div style="font-size:0.8rem; color:var(--text-muted); margin-top:6px;"><i class="fa fa-spinner fa-spin"></i> Active Node...</div>` : ''}
+              </div>
+            </div>
+          `;
+        }).join('');
+
+      } catch(e) {}
+    }
+
+    window.continueTrip = async (id) => {
+      try {
+        await API.post(`/trips/${id}/continue`);
+        Toast.show('Route approved and continued', 'success');
+        refreshTracker(id);
+      } catch (e) { Toast.show(e.message, 'danger'); }
+    };
+
+    loadTrips();
+  </script>
+</body>
+</html>
