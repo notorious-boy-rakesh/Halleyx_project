@@ -48,18 +48,38 @@ app.use(require('./middleware/errorHandler'));
 
 // ── Database + Server Start ─────────────────────────────────────────────────
 const PORT = process.env.PORT || 5000;
-const MONGO_URI = process.env.MONGO_URI || 'mongodb://localhost:27017/flowforge';
+let MONGO_URI = process.env.MONGO_URI;
 
-mongoose.connect(MONGO_URI)
-  .then(() => {
-    console.log('✅ MongoDB connected');
+async function startServer() {
+  try {
+    if (!MONGO_URI || MONGO_URI.includes('localhost')) {
+      console.log('🌐 No remote MONGO_URI found. Starting MongoMemoryServer...');
+      const { MongoMemoryServer } = require('mongodb-memory-server');
+      const mongod = await MongoMemoryServer.create();
+      MONGO_URI = mongod.getUri();
+      console.log('✅ In-memory MongoDB started');
+
+      await mongoose.connect(MONGO_URI);
+      console.log('✅ MongoDB connected (In-Memory)');
+
+      // Auto-seed the memory database
+      const seed = require('./utils/seedData');
+      await seed(true);
+    } else {
+      await mongoose.connect(MONGO_URI);
+      console.log('✅ MongoDB connected (Remote)');
+    }
+
     app.listen(PORT, () => {
       console.log(`🚀 Notorious Transport backend running on port ${PORT}`);
+      console.log(`📡 Deployment Mode: ${MONGO_URI.includes('127.0.0.1') || MONGO_URI.includes('mongodb:///') ? 'In-Memory (Ephemeral)' : 'Remote DB'}`);
     });
-  })
-  .catch(err => {
-    console.error('❌ MongoDB connection error:', err.message);
+  } catch (err) {
+    console.error('❌ Database/Server start error:', err.message);
     process.exit(1);
-  });
+  }
+}
+
+startServer();
 
 module.exports = app;

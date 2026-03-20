@@ -14,8 +14,10 @@ const expenseEngine = require('../services/expenseEngine');
 
 const MONGO_URI = process.env.MONGO_URI || 'mongodb://localhost:27017/notorious';
 
-async function seed() {
-  await mongoose.connect(MONGO_URI);
+async function seed(skipDisconnect = false) {
+  if (mongoose.connection.readyState === 0) {
+    await mongoose.connect(MONGO_URI);
+  }
   console.log('✅ Connected to MongoDB');
 
   // Clear existing data
@@ -112,12 +114,19 @@ async function seed() {
   console.log('  Admin/Owner:    admin@notorious.com   / Admin@123');
   console.log('  Ops Manager:    manager@notorious.com / Manager@123');
   console.log('  Driver:         mike@notorious.com    / User@123');
-
-  await mongoose.disconnect();
-  process.exit(0);
 }
 
-seed().catch(err => {
-  console.error('❌ Seed error:', err);
-  process.exit(1);
-});
+module.exports = seed;
+
+// Only run if called directly
+if (require.main === module) {
+  seed()
+    .then(() => {
+      console.log('✅ Seed complete');
+      process.exit(0);
+    })
+    .catch(err => {
+      console.error('❌ Seed error:', err);
+      process.exit(1);
+    });
+}
